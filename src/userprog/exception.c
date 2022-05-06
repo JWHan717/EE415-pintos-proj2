@@ -4,6 +4,8 @@
 #include "userprog/gdt.h"
 #include "threads/interrupt.h"
 #include "threads/thread.h"
+#include "threads/palloc.h"
+#include "threads/vaddr.h"
 
 /* Number of page faults processed. */
 static long long page_fault_cnt;
@@ -147,15 +149,22 @@ page_fault (struct intr_frame *f)
   not_present = (f->error_code & PF_P) == 0;
   write = (f->error_code & PF_W) != 0;
   user = (f->error_code & PF_U) != 0;
+  
+  /* Check if the memory reference is valid. */
 
-  /* To implement virtual memory, delete the rest of the function
-     body, and replace it with code that brings in the page to
-     which fault_addr refers. */
-  printf ("Page fault at %p: %s error %s page in %s context.\n",
-          fault_addr,
-          not_present ? "not present" : "rights violation",
-          write ? "writing" : "reading",
-          user ? "user" : "kernel");
-  kill (f);
+  /* For shared page, the page can be already in the page frame,
+  but not in the page table. */
+
+  /* If access is invalid, kill the process. */
+  if(fault_addr == NULL || is_kernel_vaddr(fault_addr)){
+     kill(f);
+  }
+
+  /* Allocate page frame. */
+  palloc_get_page(PAL_USER);
+
+  /* Fetch the data from the disk to the page frame. */
+
+  /* Update page table. */
 }
 
