@@ -128,7 +128,8 @@ start_process (void *file_name_)
   }
 
   /* Initialize the set of vm_entries */
-  hash_init(&thread_current()->vm, vm_hash_func, vm_less_func, NULL);
+  //hash_init(&thread_current()->vm, vm_hash_func, vm_less_func, NULL);
+  vm_init(&thread_current()->vm);
 
   /* Initialize interrupt frame and load executable. */
   memset (&if_, 0, sizeof if_);
@@ -204,7 +205,8 @@ process_exit (void)
     exit(-1);
   }
 
-  hash_destroy(&cur->vm, vm_destroy_func);
+  //hash_destroy(&cur->vm, vm_destroy_func);
+  vm_destroy(&cur->vm);
 
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
@@ -528,9 +530,18 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       //   }
 
       /* Create vm_entry (use malloc) */
+      struct vm_entry *vme = malloc(sizeof(struct vm_entry));
       /* Setting vm_entry members, offset and size of file to read
       when virtual page is required, zero byte to pad at the end */
+      vme -> f = file;
+      vme -> type = VM_BIN;
+      vme -> vaddr = upage;
+      vme -> zero_bytes = zero_bytes;
+      vme -> read_bytes = read_bytes;
+      vme -> offset = ofs;
+      vme -> writable = writable;
       /* Add vm_entry to hash table by insert_vme() */
+      insert_vme(&thread_current()->vm, vme);
 
       /* Advance. */
       read_bytes -= page_read_bytes;
@@ -557,6 +568,20 @@ setup_stack (void **esp)
       else
         palloc_free_page (kpage);
     }
+
+  /* Create vm_entry */
+  struct vm_entry *vme = malloc(sizeof(struct vm_entry));
+  /* Set up vm_entry members */
+  vme -> f = NULL;
+  vme -> type = VM_BIN;
+  vme -> vaddr = (uint32_t)*esp;
+  vme -> zero_bytes = PGSIZE;
+  vme -> read_bytes = 0;
+  vme -> offset = 0;
+  vme -> writable = true;
+  /* Using insert_vme(), add vm_entry to hash table */
+  insert_vme(&thread_current()->vm, vme);
+
   return success;
 }
 
@@ -582,12 +607,37 @@ install_page (void *upage, void *kpage, bool writable)
 
 /* Called to handle page fault. */
 bool handle_mm_fault (struct vm_entry *vme) {
+  bool success = false;
+  ASSERT(vme != NULL);
   /* When page fault occurs, allocate physical memory. */
+  uint8_t *kpage = palloc_get_page (PAL_USER);
+  if (kpage == NULL)
+     return success;
   
-  /* Load file in the disk to physical memory. */
-  // load_file()
+  switch(vme->type){
+      case VM_BIN:
+        /* Load file in the disk to physical memory. */
+        success = load_file(kpage, vme);
+        break;
 
+      case VM_ANON:		
+        /* insert swap in code */
+        break;
+
+      case VM_FILE:
+        break;
+
+      default:
+        break;
+    }
+
+  
   /* Update the associated page table entry after loading into
   physical memory. */
-  // install_page()
+  if (!install_page(vme->vaddr, kpage, vme->writable)){
+    palloc_free_page (kpage);
+    return false;
+  }
+
+  return success;
 }

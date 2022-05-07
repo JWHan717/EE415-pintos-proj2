@@ -6,6 +6,8 @@
 #include "threads/thread.h"
 #include "threads/palloc.h"
 #include "threads/vaddr.h"
+#include "vm/page.h"
+#include "userprog/process.h"
 
 /* Number of page faults processed. */
 static long long page_fault_cnt;
@@ -157,11 +159,15 @@ page_fault (struct intr_frame *f)
 
   /* If access is invalid, kill the process. */
   if(fault_addr == NULL || is_kernel_vaddr(fault_addr)){
-     kill(f);
+      kill(f);
+  }
+  else {
+     struct vm_entry *vme = find_vme(fault_addr);
+     if (!handle_mm_fault(vme)) kill(f);
   }
 
   /* Allocate page frame. */
-  palloc_get_page(PAL_USER);
+  //palloc_get_page(PAL_USER);
 
   /* Fetch the data from the disk to the page frame. */
 

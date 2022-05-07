@@ -118,7 +118,7 @@ struct thread
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
 
-    struct hash vm; /* Hash table to manage virtual address space of thread. */
+    struct hash *vm; /* Hash table to manage virtual address space of thread. */
   };
 
 /* If false (default), use round-robin scheduler.
