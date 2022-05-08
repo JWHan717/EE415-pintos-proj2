@@ -530,7 +530,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       //   }
 
       /* Create vm_entry (use malloc) */
-      struct vm_entry *vme = malloc(sizeof(struct vm_entry));
+      struct vm_entry *vme = malloc(sizeof *vme);
 
       /* Setting vm_entry members, offset and size of file to read
       when virtual page is required, zero byte to pad at the end */
@@ -574,11 +574,11 @@ setup_stack (void **esp)
 
 #ifdef VM
   /* Create vm_entry */
-  struct vm_entry *vme = malloc(sizeof(struct vm_entry));
+  struct vm_entry *vme = malloc(sizeof *vme);
 
   /* Set up vm_entry members */
   vme -> f = NULL;
-  vme -> type = VM_BIN;
+  vme -> type = VM_ANON;
   vme -> vaddr = (uint32_t)*esp;
   vme -> zero_bytes = PGSIZE;
   vme -> read_bytes = 0;

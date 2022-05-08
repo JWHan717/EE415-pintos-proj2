@@ -21,6 +21,14 @@ struct file
     bool deny_write;            /* Has file_deny_write() been called? */
   };
 
+struct mmap_file{
+  mapid_t mapid;
+  struct file *f;
+  struct list_elem mmap_elem;
+  struct list vme_list;
+};
+
+
 void
 syscall_init (void) 
 {

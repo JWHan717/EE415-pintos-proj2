@@ -7,12 +7,16 @@
 #include "threads/vaddr.h"
 #include "threads/thread.h"
 
+/* List of physical pages allocated to user process */
+static struct list lru_list;
+
 /* Using file_read_at(), write physical memory as much as read_bytes.
 Return file_read_at status, pad as much as zero_bytes.
 If file is loaded to memory, return true. */
 bool load_file (void *kaddr, struct vm_entry *vme) {
     /* Load page in disk to physical memory */
     /* Load a page to kaddr by <file, offset> of vme */
+    ASSERT(vme->f != NULL);
     int read_bytes = file_read_at(vme->f, kaddr, vme->read_bytes, vme->offset);
     if (read_bytes != (int)vme->read_bytes) return false;
 

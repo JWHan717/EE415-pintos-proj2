@@ -5,6 +5,7 @@
 #include <list.h>
 
 typedef int pid_t;
+typedef int mapid_t;
 
 void syscall_init (void);
 void halt(void);
@@ -31,5 +32,7 @@ void sigaction(int signum, void *handler);
 void sendsig(pid_t pid, int signum);
 void sched_yield(void);
 
+int mmap(int fd, void *addr);
+void munmap(mapid_t mapid);
 
 #endif /* userprog/syscall.h */

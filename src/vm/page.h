@@ -13,7 +13,6 @@ enum vme_type
     VM_FILE
   };
 
-
 struct vm_entry {
     struct hash_elem hashelem;
     struct file *f;
@@ -23,6 +22,13 @@ struct vm_entry {
     uint32_t read_bytes;
     off_t offset;
     bool writable;
+};
+
+struct page{
+    uint8_t *kaddr;
+    struct vm_entry *vme;
+    struct thread *t;
+    struct list_elem lru_elem;
 };
 
 void vm_init(struct hash *);
