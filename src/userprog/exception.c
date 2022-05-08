@@ -152,25 +152,27 @@ page_fault (struct intr_frame *f)
   write = (f->error_code & PF_W) != 0;
   user = (f->error_code & PF_U) != 0;
   
-  /* Check if the memory reference is valid. */
-
-  /* For shared page, the page can be already in the page frame,
-  but not in the page table. */
-
-  /* If access is invalid, kill the process. */
-  if(fault_addr == NULL || is_kernel_vaddr(fault_addr)){
+  /* Check if the memory reference is valid.
+  For shared page, the page can be already in the page frame,
+  but not in the page table.
+  If access is invalid, kill the process. */
+  if(fault_addr == NULL || is_kernel_vaddr(fault_addr)) {
+     exit(-1);
+  }
+  if(!not_present){
       kill(f);
   }
   else {
-     struct vm_entry *vme = find_vme(fault_addr);
-     if (!handle_mm_fault(vme)) kill(f);
+     void *fault_page = (void *) pg_round_down(fault_addr);
+     struct vm_entry *vme = find_vme(fault_page);
+     
+     if (vme == NULL) {
+      setup_stack(fault_page);
+      return;
+     }
+
+     if (!handle_mm_fault(vme)) exit(-1);
   }
-
-  /* Allocate page frame. */
-  //palloc_get_page(PAL_USER);
-
-  /* Fetch the data from the disk to the page frame. */
-
-  /* Update page table. */
+  return;
 }
 

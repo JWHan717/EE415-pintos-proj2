@@ -7,58 +7,24 @@
 #include "threads/vaddr.h"
 #include "threads/thread.h"
 
-/*
-static bool setup_stack (void **esp) 
-{
-  uint8_t *kpage;
-  bool success = false;
-
-  kpage = palloc_get_page (PAL_USER | PAL_ZERO);
-  if (kpage != NULL) 
-    {
-      success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
-      if (success)
-        *esp = PHYS_BASE;
-      else
-        palloc_free_page (kpage);
-    }
-   Create vm_entry 
-  struct vm_entry *vme = malloc(sizeof(struct vm_entry));
-   Set up vm_entry members 
-  vme -> f = NULL;
-  vme -> type = VM_BIN;
-  vme -> vaddr = (uint32_t)*esp;
-  vme -> zero_bytes = 0;
-  vme -> read_bytes = PGSIZE;
-  vme -> offset = 0;
-  vme -> writable = true;
-   Using insert_vme(), add vm_entry to hash table 
-  insert_vme(&thread_current()->vm, vme);
-
-  return success;
-}
-*/
 /* Using file_read_at(), write physical memory as much as read_bytes.
 Return file_read_at status, pad as much as zero_bytes.
 If file is loaded to memory, return true. */
 bool load_file (void *kaddr, struct vm_entry *vme) {
     /* Load page in disk to physical memory */
     /* Load a page to kaddr by <file, offset> of vme */
+    int read_bytes = file_read_at(vme->f, kaddr, vme->read_bytes, vme->offset);
+    if (read_bytes != (int)vme->read_bytes) return false;
+
     /* If fail to write all 4KB, fill the rest with zeros. */
-    void *ptr;
+    memset(kaddr + vme->read_bytes, 0, vme->zero_bytes);
 
-    if (file_read_at(vme->f,kaddr,vme->read_bytes,vme->offset) != vme->read_bytes){
-      palloc_free_page (kaddr);
-      return false;
-    }
-    ptr = memset(kaddr+vme->read_bytes, 0, vme->zero_bytes);
-
-    return (ptr != NULL);
+    return true;
 }
 
 /* Hash table initialization. */
 void vm_init (struct hash *vm) {
-  hash_init(vm,vm_hash_func,vm_less_func,NULL);
+  hash_init(vm, vm_hash_func, vm_less_func, NULL);
 }
 
 /* Delete hash table. */
@@ -75,6 +41,7 @@ struct vm_entry *find_vme (void *vaddr) {
   while (hash_next (&i))
     {
       struct vm_entry *vme = hash_entry (hash_cur (&i), struct vm_entry, hashelem);
+      // printf("%x, %x\n", vme->vaddr, vaddr);
       if (vme->vaddr == vaddr) return vme;
     }
 
