@@ -9,7 +9,7 @@
 #include "filesys/file.h"
 
 /* List of physical pages allocated to user process */
-static struct list lru_list;
+//static struct list lru_list;
 
 /* Using file_read_at(), write physical memory as much as read_bytes.
 Return file_read_at status, pad as much as zero_bytes.

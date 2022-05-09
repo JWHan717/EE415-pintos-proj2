@@ -23,13 +23,13 @@ struct vm_entry {
     off_t offset;
     bool writable;
 };
-
+/*
 struct page{
-    uint8_t *kaddr;
-    struct vm_entry *vme;
-    struct thread *t;
+    uint8_t *kaddr;             // physical address of page 
+    struct vm_entry *vme;       // reference to the virtual page object 
+    struct thread *t;           // Reference to the thread to which it belongs 
     struct list_elem lru_elem;
-};
+};*/
 
 void vm_init(struct hash *);
 void vm_destroy(struct hash *);
