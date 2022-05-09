@@ -500,7 +500,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
   ASSERT (pg_ofs (upage) == 0);
   ASSERT (ofs % PGSIZE == 0);
 
-  file_seek (file, ofs);
+  //file_seek (file, ofs);
   while (read_bytes > 0 || zero_bytes > 0) 
     {
       /* Calculate how to fill this page.
@@ -534,7 +534,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 
       /* Setting vm_entry members, offset and size of file to read
       when virtual page is required, zero byte to pad at the end */
-      vme -> f = file;
+      vme -> f = file_reopen(file);
       vme -> type = VM_BIN;
       vme -> vaddr = upage;
       vme -> zero_bytes = zero_bytes;
@@ -579,7 +579,7 @@ setup_stack (void **esp)
   /* Set up vm_entry members */
   vme -> f = NULL;
   vme -> type = VM_ANON;
-  vme -> vaddr = (uint32_t)*esp;
+  vme -> vaddr = (uint8_t *)*esp;
   vme -> zero_bytes = PGSIZE;
   vme -> read_bytes = 0;
   vme -> offset = 0;

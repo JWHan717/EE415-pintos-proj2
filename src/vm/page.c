@@ -6,6 +6,7 @@
 #include "threads/palloc.h"
 #include "threads/vaddr.h"
 #include "threads/thread.h"
+#include "filesys/file.h"
 
 /* List of physical pages allocated to user process */
 static struct list lru_list;
@@ -17,8 +18,14 @@ bool load_file (void *kaddr, struct vm_entry *vme) {
     /* Load page in disk to physical memory */
     /* Load a page to kaddr by <file, offset> of vme */
     ASSERT(vme->f != NULL);
-    int read_bytes = file_read_at(vme->f, kaddr, vme->read_bytes, vme->offset);
-    if (read_bytes != (int)vme->read_bytes) return false;
+    //int read_bytes = file_read_at(vme->f, kaddr, vme->read_bytes, vme->offset);
+    //if (read_bytes != (int)vme->read_bytes) return false;
+    file_seek (vme->f, vme->offset);
+    if (file_read (vme->f, kaddr, vme->read_bytes) != (int) vme->read_bytes)
+       {
+         //palloc_free_page (kaddr);
+         return false; 
+       }
 
     /* If fail to write all 4KB, fill the rest with zeros. */
     memset(kaddr + vme->read_bytes, 0, vme->zero_bytes);
