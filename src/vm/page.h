@@ -22,6 +22,7 @@ struct vm_entry {
     uint32_t read_bytes;
     off_t offset;
     bool writable;
+    struct list_elem mmap_vme_elem;
 };
 /*
 struct page{

@@ -205,7 +205,12 @@ process_exit (void)
     exit(-1);
   }
 
-  //hash_destroy(&cur->vm, vm_destroy_func);
+  struct list_elem *e;
+  for (e = list_begin(&cur->mmap_list); e != list_end(&cur->mmap_list); e = list_next(e)) {
+    struct vm_entry *vme = list_entry(e, struct vm_entry, mmap_vme_elem);
+    free(vme);
+  }
+
   vm_destroy(&cur->vm);
 
   /* Destroy the current process's page directory and switch back
@@ -244,7 +249,7 @@ process_activate (void)
      interrupts. */
   tss_update ();
 }
-
+
 /* We load ELF binaries.  The following definitions are taken
    from the ELF specification, [ELF1], more-or-less verbatim.  */
 
@@ -428,10 +433,8 @@ load (const char *file_name, void (**eip) (void), void **esp)
   file_close (file);
   return success;
 }
-
-/* load() helpers. */
 
-static bool install_page (void *upage, void *kpage, bool writable);
+/* load() helpers. */
 
 /* Checks whether PHDR describes a valid, loadable segment in
    FILE and returns true if so, false otherwise. */
@@ -601,7 +604,7 @@ setup_stack (void **esp)
    with palloc_get_page().
    Returns true on success, false if UPAGE is already mapped or
    if memory allocation fails. */
-static bool
+bool
 install_page (void *upage, void *kpage, bool writable)
 {
   struct thread *t = thread_current ();
@@ -634,11 +637,16 @@ bool handle_mm_fault (struct vm_entry *vme) {
         }
         break;
 
+      case VM_FILE:
+        success = load_file(kpage, vme);
+        if(!success) {
+          palloc_free_page(kpage);
+          return false;
+        }
+        break;
+      
       case VM_ANON:		
         /* insert swap in code */
-        break;
-
-      case VM_FILE:
         break;
 
       default:
@@ -649,7 +657,6 @@ bool handle_mm_fault (struct vm_entry *vme) {
   /* Update the associated page table entry after loading into
   physical memory. */
   if (!install_page(vme->vaddr, kpage, vme->writable)){
-    printf("failed installing page\n");
     palloc_free_page (kpage);
     return false;
   }

@@ -6,11 +6,13 @@
 #include "threads/thread.h"
 #include "threads/vaddr.h"
 #include "threads/synch.h"
+#include "threads/malloc.h"
 #include "devices/shutdown.h"
 #include "filesys/file.h"
 #include "filesys/filesys.h"
 #include "userprog/process.h"
 #include "vm/page.h"
+#include "threads/palloc.h"
 
 static void syscall_handler (struct intr_frame *);
 
@@ -39,11 +41,9 @@ syscall_init (void)
 
 static void valid_address(void *addr) {
   for(int i=0; i<4; i++){
-    if(!is_user_vaddr(addr+i) || addr+i == NULL || 
-      !pagedir_get_page(thread_current() -> pagedir, addr+i)) {
-      //pagedir_clear_page(addr);
-      exit(-1);
-    }
+    if(!is_user_vaddr(addr+i)) exit(-1);
+    if(addr+i == NULL) exit(-1);
+    if(!pagedir_get_page(thread_current()->pagedir, addr+i)) exit(-1);
   }
 }
 
@@ -143,6 +143,17 @@ syscall_handler (struct intr_frame *f)
 
     case SYS_YIELD:
       sched_yield();
+      break;
+    
+    case SYS_MMAP:
+      valid_address(f->esp + 4);
+      valid_address(f->esp + 8);
+      mmap((int)*(uint32_t *)(f->esp + 4), (void *)*(uint32_t *)(f->esp + 8));
+      break;
+
+    case SYS_MUNMAP:
+      valid_address(f->esp + 4);
+      munmap((mapid_t)*(uint32_t *)(f->esp + 4));
       break;
   }
 }
@@ -337,4 +348,75 @@ void sendsig(pid_t pid, int signum){
 
 void sched_yield(void){
   thread_yield();
+}
+
+/* Load file data into memory by demand paging. mmap()'ed page is
+swapped out to its original location in the file.
+For a fragmented page, fill the unused fraction of the page with zero. */
+mapid_t mmap(int fd, void *addr) {
+  if (fd == 0 || fd == 1) return -1;
+  if (pg_round_down(addr) != addr) return -1;
+  if (addr == 0) return -1;
+
+  struct file *f = file_reopen(thread_current()->fd[fd]);
+  if (f == NULL || file_length(f) == 0) return -1;
+
+  struct list *mmap_list = &thread_current()->mmap_list;
+  mapid_t mapid = list_size(mmap_list);
+
+  struct mmap_file *mmfile = malloc(sizeof(struct mmap_file));
+  list_init(&mmfile->vme_list);
+  mmfile->f = f;
+  mmfile->mapid = mapid;
+
+  size_t read_bytes = file_length(f);
+  size_t zero_bytes = PGSIZE - read_bytes % PGSIZE;
+  off_t offset = 0;
+
+  while (read_bytes > 0 || zero_bytes > 0) {
+    size_t page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
+    size_t page_zero_bytes = PGSIZE - page_read_bytes;
+
+    struct vm_entry *vme = (struct vm_entry *)malloc(sizeof(struct vm_entry));
+    vme->type = VM_FILE;
+    vme->vaddr = addr;
+    vme->f = file_reopen(f);
+    vme->offset = offset;
+    vme->read_bytes = page_read_bytes;
+
+    if (!insert_vme(&thread_current()->vm, vme)) return -1;
+    list_push_back(&mmfile->vme_list, &vme->mmap_vme_elem);
+
+    read_bytes -= page_read_bytes;
+    zero_bytes -= page_zero_bytes;
+    addr += PGSIZE;
+    offset += page_read_bytes;
+
+    // printf("%d %d %d %d\n", read_bytes, page_read_bytes, zero_bytes, page_zero_bytes);
+
+    if (read_bytes == 0) {
+      memset(addr + page_read_bytes, 0, page_zero_bytes);
+    }
+  }
+
+  list_push_back(mmap_list, &mmfile->mmap_elem);
+  return mapid;
+}
+
+/* Unmap the mapping sin the mmap_list which has not been previously unmapped */
+void munmap(mapid_t mapid) {
+  struct list_elem *e;
+  struct thread *t = thread_current();
+  struct mmap_file *mmfile;
+  for (e = list_begin(&t->mmap_list); e != list_end(&t->mmap_list); e = list_next(e)) {
+    mmfile = list_entry(e, struct mmap_file, mmap_elem);
+    if (mmfile->mapid == mapid) {
+      break;
+    }
+  }
+  if (mmfile == NULL) return;
+  for (e = list_begin(&mmfile->vme_list); e != list_end(&mmfile->vme_list); e = list_next(e)) {
+    struct vm_entry *vme = list_entry(e, struct vm_entry, mmap_vme_elem);
+    if (vme != NULL && vme->vaddr != NULL) palloc_free_page(vme->vaddr);
+  }
 }
