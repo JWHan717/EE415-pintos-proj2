@@ -10,5 +10,6 @@ void process_exit (void);
 void process_activate (void);
 
 bool handle_mm_fault (struct vm_entry *vme);
+void expand_stack (void *);
 
 #endif /* userprog/process.h */

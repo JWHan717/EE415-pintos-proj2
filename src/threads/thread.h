@@ -119,6 +119,7 @@ struct thread
     unsigned magic;                     /* Detects stack overflow. */
 
     struct hash vm; /* Hash table to manage virtual address space of thread. */
+    void *esp;
     struct list mmap_list;
   };
 

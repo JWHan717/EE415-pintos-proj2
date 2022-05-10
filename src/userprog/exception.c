@@ -159,6 +159,7 @@ page_fault (struct intr_frame *f)
   if(fault_addr == NULL || is_kernel_vaddr(fault_addr)) {
      exit(-1);
   }
+  
   if(!not_present){
       kill(f);
   }
@@ -167,8 +168,14 @@ page_fault (struct intr_frame *f)
      struct vm_entry *vme = find_vme(fault_page);
      
      if (vme == NULL) {
-      setup_stack(fault_page);
-      return;
+      void *esp = user ? f->esp : thread_current()->esp;
+
+      /* If a process accesses the address that lies outside the stack
+      and that can be handled by expanding the stack, expand it. */
+      if (esp - fault_addr <= 32) {
+         expand_stack(fault_addr);
+         return;
+      } else exit(-1);
      }
 
      if (!handle_mm_fault(vme)) exit(-1);

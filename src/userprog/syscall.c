@@ -51,6 +51,7 @@ static void
 syscall_handler (struct intr_frame *f) 
 {
   valid_address(f->esp);
+  thread_current()->esp = f->esp;
 
   uint32_t syscall_num = *(uint32_t *)f->esp;
   // printf ("--- system call! syscall_num: %d\n", syscall_num);

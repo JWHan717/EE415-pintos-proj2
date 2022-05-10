@@ -628,7 +628,7 @@ bool handle_mm_fault (struct vm_entry *vme) {
         /* Load file in the disk to physical memory. */
         success = load_file(kpage, vme);
         if(!success) {
-          printf("failed load\n");
+          // printf("failed load\n");
           palloc_free_page(kpage);
           return false;
         }
@@ -655,4 +655,29 @@ bool handle_mm_fault (struct vm_entry *vme) {
   }
 
   return true;
+}
+
+void expand_stack (void *addr) {
+   uint8_t *kpage = palloc_get_page(PAL_USER);
+   if (kpage != NULL) 
+    {
+      bool success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
+      if (!success)
+        palloc_free_page (kpage);
+    }
+
+   /* Create vm_entry */
+  struct vm_entry *vme = malloc(sizeof *vme);
+
+  /* Set up vm_entry members */
+  vme -> f = NULL;
+  vme -> type = VM_ANON;
+  vme -> vaddr = pg_round_down(addr);
+  vme -> zero_bytes = PGSIZE;
+  vme -> read_bytes = 0;
+  vme -> offset = 0;
+  vme -> writable = true;
+
+  /* Using insert_vme(), add vm_entry to hash table */
+  if (!insert_vme(&thread_current()->vm, vme)) exit(-1);
 }
