@@ -15,12 +15,12 @@ struct page{
 };
 
 void lru_init();
-void lru_destroy(struct list *);
+void lru_destroy();
 void insert_lru(struct list_elem *);
 void remove_lru(struct list_elem *);
 struct page *find_lru(uint8_t *);
 
-void *lru_get_page(struct vm_entry *);
+struct page *lru_get_page(struct vm_entry *);
 void *lru_free_page(uint8_t *);
 
 #endif /* vm/frame.h */

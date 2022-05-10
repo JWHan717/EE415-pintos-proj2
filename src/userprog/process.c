@@ -8,6 +8,7 @@
 #include "userprog/gdt.h"
 #include "userprog/pagedir.h"
 #include "userprog/tss.h"
+#include "userprog/syscall.h"
 #include "filesys/directory.h"
 #include "filesys/file.h"
 #include "filesys/filesys.h"
@@ -19,6 +20,8 @@
 #include "threads/vaddr.h"
 #include "threads/synch.h"
 #include "vm/page.h"
+#include "vm/frame.h"
+#include "vm/swap.h"
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
@@ -207,8 +210,10 @@ process_exit (void)
 
   struct list_elem *e;
   for (e = list_begin(&cur->mmap_list); e != list_end(&cur->mmap_list); e = list_next(e)) {
-    struct vm_entry *vme = list_entry(e, struct vm_entry, mmap_vme_elem);
-    free(vme);
+    //struct vm_entry *vme = list_entry(e, struct vm_entry, mmap_vme_elem);
+    //free(vme);
+    struct mmap_file *mmfile = list_entry(e, struct mmap_file, mmap_elem);
+    munmap(mmfile->mapid);
   }
 
   vm_destroy(&cur->vm);
@@ -625,28 +630,33 @@ bool handle_mm_fault (struct vm_entry *vme) {
   if (kpage == NULL) {
     return false;
   }
+  //struct page *p = lru_get_page(vme);
   
   switch(vme->type){
       case VM_BIN:
         /* Load file in the disk to physical memory. */
+        //success = load_file(p->kaddr, vme);
         success = load_file(kpage, vme);
         if(!success) {
           // printf("failed load\n");
           palloc_free_page(kpage);
+          //lru_free_page(p->kaddr);
           return false;
         }
         break;
 
       case VM_FILE:
+        //success = load_file(p->kaddr, vme);
         success = load_file(kpage, vme);
         if(!success) {
           palloc_free_page(kpage);
+          //lru_free_page(p->kaddr);
           return false;
         }
         break;
       
       case VM_ANON:		
-        /* insert swap in code */
+        //swap_in(p);
         break;
 
       default:
@@ -658,6 +668,7 @@ bool handle_mm_fault (struct vm_entry *vme) {
   physical memory. */
   if (!install_page(vme->vaddr, kpage, vme->writable)){
     palloc_free_page (kpage);
+    //lru_free_page(p->kaddr);
     return false;
   }
 

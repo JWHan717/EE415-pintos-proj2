@@ -91,6 +91,6 @@ static bool vm_less_func (const struct hash_elem *a,
 /* Remove memory of vm_entry */
 static void vm_destroy_func(struct hash_elem *e, void *aux UNUSED) {
   struct vm_entry *vme = hash_entry(e,struct vm_entry, hashelem);
-  //hash_delete(vm, &vme->hashelem);
+  //hash_delete(&thread_current()->vm, &vme->hashelem);
   free(vme);
 }

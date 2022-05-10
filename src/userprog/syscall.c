@@ -24,12 +24,7 @@ struct file
     bool deny_write;            /* Has file_deny_write() been called? */
   };
 
-struct mmap_file{
-  mapid_t mapid;
-  struct file *f;
-  struct list_elem mmap_elem;
-  struct list vme_list;
-};
+
 
 
 void
@@ -357,6 +352,7 @@ mapid_t mmap(int fd, void *addr) {
   if (fd == 0 || fd == 1) return -1;
   if (pg_round_down(addr) != addr) return -1;
   if (addr == 0) return -1;
+  //if (find_vme(addr) != NULL) return -1;
 
   struct file *f = file_reopen(thread_current()->fd[fd]);
   if (f == NULL || file_length(f) == 0) return -1;
@@ -364,7 +360,7 @@ mapid_t mmap(int fd, void *addr) {
   struct list *mmap_list = &thread_current()->mmap_list;
   mapid_t mapid = list_size(mmap_list);
 
-  struct mmap_file *mmfile = malloc(sizeof(struct mmap_file));
+  struct mmap_file *mmfile = malloc(sizeof *mmfile);
   list_init(&mmfile->vme_list);
   mmfile->f = f;
   mmfile->mapid = mapid;
@@ -383,6 +379,8 @@ mapid_t mmap(int fd, void *addr) {
     vme->f = file_reopen(f);
     vme->offset = offset;
     vme->read_bytes = page_read_bytes;
+    vme->zero_bytes = page_zero_bytes;
+    vme->writable = true;
 
     if (!insert_vme(&thread_current()->vm, vme)) return -1;
     list_push_back(&mmfile->vme_list, &vme->mmap_vme_elem);
@@ -408,6 +406,7 @@ void munmap(mapid_t mapid) {
   struct list_elem *e;
   struct thread *t = thread_current();
   struct mmap_file *mmfile;
+  if(mapid == NULL) return;
   for (e = list_begin(&t->mmap_list); e != list_end(&t->mmap_list); e = list_next(e)) {
     mmfile = list_entry(e, struct mmap_file, mmap_elem);
     if (mmfile->mapid == mapid) {
@@ -417,6 +416,12 @@ void munmap(mapid_t mapid) {
   if (mmfile == NULL) return;
   for (e = list_begin(&mmfile->vme_list); e != list_end(&mmfile->vme_list); e = list_next(e)) {
     struct vm_entry *vme = list_entry(e, struct vm_entry, mmap_vme_elem);
-    if (vme != NULL && vme->vaddr != NULL) palloc_free_page(vme->vaddr);
+    if (vme != NULL && vme->vaddr != NULL){
+      if(mmfile->f) {
+        file_write_at(mmfile->f,vme->vaddr,vme->read_bytes,vme->offset);
+      }
+      delete_vme(&thread_current()->vm,vme);
+    } 
   }
+  list_remove(&mmfile->mmap_elem);
 }
