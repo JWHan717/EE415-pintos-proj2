@@ -37,12 +37,16 @@ static void valid_address(void *addr)
 {
   for (int i = 0; i < 4; i++)
   {
-    if (!is_user_vaddr(addr + i))
+    if (!is_user_vaddr(addr + i)) {
       exit(-1);
-    if (addr + i == NULL)
+    }
+    if (addr + i == NULL) {
       exit(-1);
-    if (!pagedir_get_page(thread_current()->pagedir, addr + i))
-      exit(-1);
+    }
+    if (!pagedir_get_page(thread_current()->pagedir, addr + i)) {
+      expand_stack(addr);
+      return;
+    }
   }
 }
 

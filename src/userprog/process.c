@@ -550,6 +550,9 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       vme -> offset = ofs;
       vme -> writable = writable;
 
+      vme->loaded = false;
+      vme->swap_idx = -1;
+
       /* Add vm_entry to hash table by insert_vme() */
       insert_vme(&thread_current()->vm, vme);
 
@@ -592,6 +595,9 @@ setup_stack (void **esp)
   vme -> read_bytes = 0;
   vme -> offset = 0;
   vme -> writable = true;
+
+  vme->loaded = false;
+  vme->swap_idx = -1;
 
   /* Using insert_vme(), add vm_entry to hash table */
   insert_vme(&thread_current()->vm, vme);
@@ -639,9 +645,8 @@ bool handle_mm_fault (struct vm_entry *vme) {
         success = load_file(p->kaddr, vme);
         // success = load_file(kpage, vme);
         if(!success) {
-          // printf("failed load\n");
           // palloc_free_page(kpage);
-          lru_free_page(p->kaddr);
+          lru_free_page(p);
           return false;
         }
         break;
@@ -651,27 +656,28 @@ bool handle_mm_fault (struct vm_entry *vme) {
         // success = load_file(kpage, vme);
         if(!success) {
           // palloc_free_page(kpage);
-          lru_free_page(p->kaddr);
+          lru_free_page(p);
           return false;
         }
         break;
       
-      case VM_ANON:		
+      case VM_ANON:
+        if((int)vme->swap_idx == -1) break;
         swap_in(vme->swap_idx, p);
         break;
 
       default:
         break;
     }
-
   
   /* Update the associated page table entry after loading into
   physical memory. */
-  if (!install_page(vme->vaddr, p, vme->writable)){
+  if (!install_page(vme->vaddr, p->kaddr, vme->writable)){
     // palloc_free_page (kpage);
     lru_free_page(p->kaddr);
     return false;
   }
+  pagedir_set_dirty(thread_current()->pagedir, p, false);
 
   return true;
 }
@@ -696,6 +702,9 @@ void expand_stack (void *addr) {
   vme -> read_bytes = 0;
   vme -> offset = 0;
   vme -> writable = true;
+
+  vme->loaded = false;
+  vme->swap_idx = -1;
 
   /* Using insert_vme(), add vm_entry to hash table */
   if (!insert_vme(&thread_current()->vm, vme)) exit(-1);

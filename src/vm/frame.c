@@ -6,6 +6,7 @@
 #include "threads/palloc.h"
 #include "threads/vaddr.h"
 #include "threads/thread.h"
+#include "userprog/pagedir.h"
 #include "filesys/file.h"
 #include "vm/page.h"
 #include "vm/frame.h"
@@ -29,7 +30,8 @@ void lru_destroy(){
   
 }
 void insert_lru(struct page *page){
-    list_push_back(&lru_list, &page->lru_elem);
+  if (lru_ptr == NULL) lru_ptr = &page->lru_elem;
+  list_push_back(&lru_list, &page->lru_elem);
 }
 
 void remove_lru( struct page *page){
@@ -57,16 +59,16 @@ struct page *lru_get_page(struct vm_entry *vme){
   uint8_t *kpage = palloc_get_page (PAL_USER);
   while (kpage == NULL) {
     struct page *victim = select_victim(&lru_list);
-    if (victim->pinned) {
-      continue;
-    }
     pagedir_clear_page(victim->t->pagedir, victim->kaddr);
-    bool dirty = pagedir_is_dirty(victim->t->pagedir, victim->kaddr);
 
     size_t swap_idx = swap_out(victim);
+    vme->swap_idx = swap_idx;
 
     kpage = palloc_get_page(PAL_USER);
-    if (kpage == NULL) exit(-1);
+    if (kpage == NULL) {
+      lock_release(&frame_lock);
+      return NULL;
+    }
   }
 
   struct page *p = malloc(sizeof(struct page));
@@ -77,23 +79,35 @@ struct page *lru_get_page(struct vm_entry *vme){
   p->kaddr = kpage;
   p->t = thread_current();
   p->vme = vme;
-  p->pinned = false;
-  insert_lru(&p->lru_elem);
+  p->pinned = true;
+  insert_lru(p);
 
   lock_release(&frame_lock);
   return p;
 }
 
 void *lru_free_page(struct page *p){
-    remove_lru(&p->lru_elem);
+    remove_lru(p);
     palloc_free_page(p->kaddr);
     free(p);
 }
 
 static struct page *select_victim(uint32_t *pagedir) {
   /* iterate through lru_list, and find/return a page where
-  pinned == false and pagedir_is_dirty() == true */
-  return NULL;
+  pinned == false and pagedir_is_accessed() == false */
+  for (int i=0; i < 2*(list_size(&lru_list)); i++) {
+    lru_ptr = (lru_ptr = list_end(&lru_list)) ? list_head(&lru_list) : list_next(lru_ptr);
+    struct page *page = list_entry(lru_ptr, struct page, lru_elem);
+
+    if(page->pinned) {
+      continue;
+    } else if (pagedir_is_accessed(pagedir, page->kaddr)) {
+      pagedir_set_accessed(pagedir, page->kaddr, false);
+      continue;
+    } 
+    return page;
+  }
+  exit(-1); /* No page to evict = no memory */
 }
 
 // static struct page *select_victim(void) {

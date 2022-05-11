@@ -7,6 +7,7 @@
 #include "threads/vaddr.h"
 #include "threads/thread.h"
 #include "filesys/file.h"
+#include "filesys/filesys.h"
 #include "userprog/process.h"
 #include "page.h"
 #include "frame.h"
@@ -31,8 +32,9 @@ void swap_init(){
 }
 
 void swap_in(size_t swap_idx, struct page *page){
-    if (page < PHYS_BASE) exit(-1);
-    if (swap_idx >= swap_size) exit(-1);
+    ASSERT (is_kernel_vaddr(page->kaddr));
+    ASSERT (swap_idx <= swap_size);
+    printf("%d\n", swap_idx);
     if(bitmap_test(swap_bitmap, swap_idx)) exit(-1);
 
     for(size_t i=0; i < SLOTS; ++i) {
@@ -46,47 +48,11 @@ size_t swap_out(struct page *page){
 
     size_t swap_idx = bitmap_scan(swap_bitmap, 0, 1, true);
     for (size_t i=0; i < SLOTS; ++i) {
+        if(pagedir_is_dirty(page->t->pagedir, page->kaddr)) {
+            block_write(fs_device, swap_idx*SLOTS + i, page + BLOCK_SECTOR_SIZE*i);
+        }
         block_write(swap_block, swap_idx*SLOTS + i, page + BLOCK_SECTOR_SIZE*i);
     }
     bitmap_set(swap_bitmap, swap_idx, false);
     return swap_idx;
-
-    // struct thread *t = page->t;
-    // struct vm_entry *vme = page->vme;
-    // switch(page->vme->type){
-    //     case VM_BIN:
-    //         if (pagedir_is_dirty(t->pagedir,vme->vaddr)){
-    //             struct block *spartition = block_get_role(BLOCK_SWAP);
-    //             block_sector_t sector;
-    //             for (sector = 0; sector < bitmap_size(swap_bitmap); sector++){
-    //                 if(!bitmap_test(swap_bitmap,sector)) break;
-    //             }
-    //             block_write(spartition,sector,page->kaddr);
-    //             bitmap_mark(swap_bitmap,sector);
-    //         }
-    //         pagedir_clear_page(t->pagedir,vme->vaddr);
-    //         lru_free_page(page->kaddr);
-    //         vme->type = VM_ANON;
-    //         break;
-    //     case VM_FILE:
-    //         if (pagedir_is_dirty(t->pagedir,vme->vaddr)){
-    //             file_write_at(vme->f,vme->vaddr,vme->read_bytes,vme->offset);
-    //         }
-    //         pagedir_clear_page(t->pagedir,vme->vaddr);
-    //         lru_free_page(page->kaddr);
-    //         break;
-    //     case VM_ANON:
-    //         struct block *spartition = block_get_role(BLOCK_SWAP);
-    //         block_sector_t sector;
-    //         for (sector = 0; sector < bitmap_size(swap_bitmap); sector++){
-    //             if(!bitmap_test(swap_bitmap,sector)) break;
-    //         }
-    //         block_write(spartition,sector,page->kaddr);
-    //         bitmap_mark(swap_bitmap,sector);
-    //         pagedir_clear_page(t->pagedir,vme->vaddr);
-    //         lru_free_page(page->kaddr);
-    //         break;
-    //     default:
-    //         break;
-    // }
 }

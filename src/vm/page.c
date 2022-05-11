@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdbool.h>
+#include "string.h"
 #include "debug.h"
 #include "vm/page.h"
 #include "hash.h"
@@ -15,22 +16,22 @@
 Return file_read_at status, pad as much as zero_bytes.
 If file is loaded to memory, return true. */
 bool load_file (void *kaddr, struct vm_entry *vme) {
-    /* Load page in disk to physical memory */
-    /* Load a page to kaddr by <file, offset> of vme */
-    ASSERT(vme->f != NULL);
-    //int read_bytes = file_read_at(vme->f, kaddr, vme->read_bytes, vme->offset);
-    //if (read_bytes != (int)vme->read_bytes) return false;
-    file_seek (vme->f, vme->offset);
-    if (file_read (vme->f, kaddr, vme->read_bytes) != (int) vme->read_bytes)
-       {
-         //palloc_free_page (kaddr);
-         return false; 
-       }
-
-    /* If fail to write all 4KB, fill the rest with zeros. */
-    memset(kaddr + vme->read_bytes, 0, vme->zero_bytes);
-
-    return true;
+  /* Load page in disk to physical memory */
+  /* Load a page to kaddr by <file, offset> of vme */
+  ASSERT(vme->f != NULL);
+  struct file *f = file_reopen(vme->f);
+  file_seek (f, vme->offset);
+  if (file_read (f, kaddr, vme->read_bytes) != (int) vme->read_bytes)
+      {
+        //palloc_free_page (kaddr);
+        return false; 
+      }
+  
+  /* If fail to write all 4KB, fill the rest with zeros. */
+  if (vme->read_bytes < PGSIZE) {
+    memset(kaddr + vme->read_bytes, 0, PGSIZE - vme->read_bytes);
+  }
+  return true;
 }
 
 /* Hash table initialization. */
