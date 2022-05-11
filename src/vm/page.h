@@ -22,15 +22,20 @@ struct vm_entry {
     uint32_t read_bytes;
     off_t offset;
     bool writable;
+
+    size_t swap_idx;
+    bool pinned;
+    bool loaded;
     struct list_elem mmap_vme_elem;
 };
-/*
+
 struct page{
     uint8_t *kaddr;             // physical address of page 
     struct vm_entry *vme;       // reference to the virtual page object 
     struct thread *t;           // Reference to the thread to which it belongs 
     struct list_elem lru_elem;
-};*/
+    bool pinned;
+};
 
 void vm_init(struct hash *);
 void vm_destroy(struct hash *);

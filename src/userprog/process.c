@@ -626,37 +626,38 @@ bool handle_mm_fault (struct vm_entry *vme) {
   ASSERT(vme != NULL);
   
   /* When page fault occurs, allocate physical memory. */
-  uint8_t *kpage = palloc_get_page (PAL_USER);
-  if (kpage == NULL) {
-    return false;
-  }
-  //struct page *p = lru_get_page(vme);
+  // uint8_t *kpage = palloc_get_page (PAL_USER);
+  // if (kpage == NULL) {
+  //   return false;
+  // }
+  struct page *p = lru_get_page(vme);
+  if (p == NULL) return false;
   
   switch(vme->type){
       case VM_BIN:
         /* Load file in the disk to physical memory. */
-        //success = load_file(p->kaddr, vme);
-        success = load_file(kpage, vme);
+        success = load_file(p->kaddr, vme);
+        // success = load_file(kpage, vme);
         if(!success) {
           // printf("failed load\n");
-          palloc_free_page(kpage);
-          //lru_free_page(p->kaddr);
+          // palloc_free_page(kpage);
+          lru_free_page(p->kaddr);
           return false;
         }
         break;
 
       case VM_FILE:
-        //success = load_file(p->kaddr, vme);
-        success = load_file(kpage, vme);
+        success = load_file(p->kaddr, vme);
+        // success = load_file(kpage, vme);
         if(!success) {
-          palloc_free_page(kpage);
-          //lru_free_page(p->kaddr);
+          // palloc_free_page(kpage);
+          lru_free_page(p->kaddr);
           return false;
         }
         break;
       
       case VM_ANON:		
-        //swap_in(p);
+        swap_in(vme->swap_idx, p);
         break;
 
       default:
@@ -666,9 +667,9 @@ bool handle_mm_fault (struct vm_entry *vme) {
   
   /* Update the associated page table entry after loading into
   physical memory. */
-  if (!install_page(vme->vaddr, kpage, vme->writable)){
-    palloc_free_page (kpage);
-    //lru_free_page(p->kaddr);
+  if (!install_page(vme->vaddr, p, vme->writable)){
+    // palloc_free_page (kpage);
+    lru_free_page(p->kaddr);
     return false;
   }
 

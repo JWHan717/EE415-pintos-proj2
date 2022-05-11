@@ -8,10 +8,9 @@
 #include "page.h"
 #include "frame.h"
 
-void swap_init();
-struct page *select_victim(struct list *);
-void swap_out(struct page *);
-void swap_in(struct page *);
+void swap_init(void);
+size_t swap_out(struct page *);
+void swap_in(size_t, struct page *);
 
 
 #endif /* vm/swap.h */
