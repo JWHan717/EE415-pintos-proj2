@@ -637,7 +637,9 @@ bool handle_mm_fault (struct vm_entry *vme) {
   //   return false;
   // }
   struct page *p = lru_get_page(vme);
-  if (p == NULL) return false;
+  if (p == NULL) {
+    return false;
+  }
   
   switch(vme->type){
       case VM_BIN:

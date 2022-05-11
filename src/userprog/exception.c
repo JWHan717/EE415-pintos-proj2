@@ -178,7 +178,9 @@ page_fault (struct intr_frame *f)
       } else exit(-1);
      }
 
-     if (!handle_mm_fault(vme)) exit(-1);
+     if (!handle_mm_fault(vme)) {
+        exit(-1);
+     }
   }
   return;
 }

@@ -47,12 +47,41 @@ size_t swap_out(struct page *page){
     if (page < PHYS_BASE) exit(-1);
 
     size_t swap_idx = bitmap_scan(swap_bitmap, 0, 1, true);
-    for (size_t i=0; i < SLOTS; ++i) {
-        if(pagedir_is_dirty(page->t->pagedir, page->kaddr)) {
-            block_write(fs_device, swap_idx*SLOTS + i, page + BLOCK_SECTOR_SIZE*i);
+
+    switch (page->vme->type)
+    {
+    case VM_BIN:
+        for (size_t i=0; i < SLOTS; ++i) {
+            if(pagedir_is_dirty(page->t->pagedir, page->kaddr)) {
+                block_write(swap_block, swap_idx*SLOTS + i, page + BLOCK_SECTOR_SIZE*i);
+            }
         }
-        block_write(swap_block, swap_idx*SLOTS + i, page + BLOCK_SECTOR_SIZE*i);
+        bitmap_set(swap_bitmap, swap_idx, false);
+        lru_free_page(page);
+        break;
+    
+    case VM_FILE:
+        for (size_t i=0; i < SLOTS; ++i) {
+            if(pagedir_is_dirty(page->t->pagedir, page->kaddr)) {
+                block_write(fs_device, swap_idx*SLOTS + i, page + BLOCK_SECTOR_SIZE*i);
+            } 
+        }
+        lru_free_page(page);
+        free(page);
+        bitmap_set(swap_bitmap, swap_idx, false);
+        break;
+
+    case VM_ANON:
+        for (size_t i=0; i < SLOTS; ++i) {
+            if(pagedir_is_dirty(page->t->pagedir, page->kaddr)) {
+                block_write(swap_block, swap_idx*SLOTS + i, page + BLOCK_SECTOR_SIZE*i);
+            }
+        }
+        bitmap_set(swap_bitmap, swap_idx, false);
+        break;
+
+    default:
+        break;
     }
-    bitmap_set(swap_bitmap, swap_idx, false);
     return swap_idx;
 }

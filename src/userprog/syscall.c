@@ -56,6 +56,9 @@ syscall_handler(struct intr_frame *f)
   valid_address(f->esp);
   thread_current()->esp = f->esp;
 
+  struct page *p = pagedir_get_page(thread_current()->pagedir, pg_round_down(f->esp));
+  p->pinned = true;
+
   uint32_t syscall_num = *(uint32_t *)f->esp;
   // printf ("--- system call! syscall_num: %d\n", syscall_num);
   // printf("--- %s (%d)\n", thread_name(), thread_tid());
@@ -160,6 +163,7 @@ syscall_handler(struct intr_frame *f)
     munmap((mapid_t) * (uint32_t *)(f->esp + 4));
     break;
   }
+  p->pinned = false;
 }
 
 void halt(void)
@@ -497,9 +501,9 @@ void munmap(mapid_t mapid)
         if(p!=NULL){
           if(vme->f) {
           file_write_at(vme->f,kpage,vme->read_bytes,vme->offset);
-          close(vme->f);
+          file_close(vme->f);
           }
-          lru_free_page(p);
+          // lru_free_page(p);
         }
         list_remove(&vme->mmap_vme_elem);
         delete_vme(&thread_current()->vm,vme);
@@ -508,5 +512,5 @@ void munmap(mapid_t mapid)
     pagedir_clear_page(&thread_current()->pagedir,vme->vaddr);
   }
   list_remove(&mmfile->mmap_elem);
-  free(mmfile);
+  // free(mmfile);
 }

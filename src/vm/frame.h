@@ -15,10 +15,9 @@
 //     bool pinned;
 // };
 
-void lru_init();
-void lru_destroy();
+void lru_init(void);
+// void lru_destroy();
 void insert_lru(struct page *);
-void remove_lru(struct page *);
 struct page *find_lru(uint8_t *);
 
 struct page *lru_get_page(struct vm_entry *);
